@@ -34,7 +34,7 @@ py -3.10 -m venv .venv
 ```bash
 python3.10 -m venv .venv
 ./.venv/bin/python -m pip install --upgrade pip
-./.venv/bin/python -m pip install -r requirements.txt
+./.venv/bin/python 
 ```
 
 > The examples below use the Windows path `.\.venv\Scripts\python.exe`.
@@ -138,6 +138,99 @@ flagged dates.
 
 ---
 
+## Deploying on an Ubuntu 22.04 server (automated daily runs)
+
+Run the daily daemon `run.py` on a headless server to import the latest prices and drop a
+dated snapshot **`results/YYYY_MM_DD.png`** each weekday, so you can open the latest image to
+check the day's status. The daily job runs the **magnitude-pulse** analysis (see
+`docs/concept_zh.md`), which is the improved signal — not the entropy chart.
+
+### 1. Copy the project to the server
+
+```bash
+# from your local machine — exclude the venv and caches (rebuilt on the server):
+rsync -av --exclude .venv --exclude __pycache__ --exclude .git \
+    TopologicalRiskIndicator/  user@server:~/TopologicalRiskIndicator/
+```
+
+- **Do** copy `stocks.db` (~31 MB) for a warm start; otherwise the first run backfills ~20
+  years of prices (slow, one network call per symbol).
+- **Don't** copy `.venv/` / `__pycache__/` — they are platform-specific.
+
+### 2. Install Python 3.10 + dependencies
+
+Ubuntu 22.04 ships Python 3.10, which `giotto-tda==0.6.2` supports directly (manylinux
+wheels — no compiler needed).
+
+```bash
+sudo apt update
+sudo apt install -y python3-venv python3-pip
+cd ~/TopologicalRiskIndicator
+
+python3 -m venv .venv
+./.venv/bin/python -m pip install --upgrade pip
+./.venv/bin/python -m pip install -r requirements.txt
+
+./.venv/bin/python -c "import gtda, yfinance, matplotlib; print('OK')"   # sanity check
+```
+
+### 3. Verify it works
+
+```bash
+./.venv/bin/python -m pytest tests -q                    # offline unit tests -> all passed
+
+# produce one snapshot from the cache (no network) to confirm the pipeline:
+./.venv/bin/python run.py --run-once --utc --no-fetch
+ls results/                                              # -> a YYYY_MM_DD.png appears
+```
+
+If you did **not** copy `stocks.db`, build the cache first (needs internet, slow once):
+
+```bash
+./.venv/bin/python src/data_fetcher.py --build-db
+```
+
+### 4. Set the server clock to UTC
+
+```bash
+sudo timedatectl set-timezone UTC
+timedatectl                                              # confirm "Time zone: UTC"
+```
+
+### 5. Schedule the daily run at 22:00 UTC, Mon–Fri (cron)
+
+22:00 UTC is ~1–2 h after the US close (20:00–21:00 UTC), so the day's prices are available.
+`1-5` restricts it to Monday–Friday, which satisfies the Sat/Sun filter.
+
+```bash
+crontab -e
+```
+
+Add one line (replace the path with your actual location):
+
+```cron
+0 22 * * 1-5  cd /home/USER/TopologicalRiskIndicator && ./.venv/bin/python run.py --run-once --utc >> results/cron.log 2>&1
+```
+
+- `0 22 * * 1-5` — 22:00 UTC, Monday–Friday.
+- `run.py --run-once --utc` — import latest prices → run analysis → save `results/<UTC-date>.png`.
+- stdout/errors are appended to `results/cron.log`.
+
+Each weekday a fresh `results/YYYY_MM_DD.png` appears.
+
+### Alternative: resident daemon (instead of cron)
+
+`run.py` also has a built-in scheduler, if you prefer one long-lived process:
+
+```bash
+nohup ./.venv/bin/python run.py --utc --run-hour 22 >> results/run.log 2>&1 &
+```
+
+It checks every 30 min and fires once per weekday after 22:00 UTC. cron is simpler and
+survives reboots; for an auto-starting daemon use a `systemd` service.
+
+---
+
 ## Configuration
 
 All knobs live in `src/config.py`: the ticker basket (`TDA_TICKERS`), `BENCHMARK_INDEX`,
@@ -147,14 +240,17 @@ default `START_DATE`/`END_DATE`, `WINDOW_SIZE` (40 trading days), `STEP_SIZE`,
 ## Project layout
 
 ```
+run.py              # daily daemon: import prices -> analyse -> results/YYYY_MM_DD.png
 src/
   config.py         # tickers, benchmark, dates, window + threshold params
   db.py             # SQLite cache (stocks.db)
   data_fetcher.py   # Module 1: fetch -> aligned daily log returns
-  tda_engine.py     # Module 2: correlation -> distance -> persistence -> H1 entropy
-  main.py           # Module 3: orchestrate + threshold + dual-panel chart
+  tda_engine.py     # Module 2: correlation -> distance -> persistence (H1 entropy + magnitude S)
+  main.py           # Module 3 (entropy): orchestrate + threshold + dual-panel chart
+  analysis.py       # signal helpers: percentile level, trend slope, drawdown events
+  magnitude_pulse.py# magnitude (S) analysis: build detector + event study + 3-panel chart
 tests/              # offline unit tests
-docs/               # PRD, SPEC, portfolio definition
+docs/               # PRD, SPEC, concept_zh, portfolio definition
 requirements.txt
 ```
 
