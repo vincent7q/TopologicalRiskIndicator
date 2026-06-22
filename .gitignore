@@ -1,5 +1,5 @@
 # Data + artifacts
-outputs/
+results/
 *.csv
 
 # Python

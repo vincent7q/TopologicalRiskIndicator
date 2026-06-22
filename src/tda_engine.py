@@ -109,6 +109,23 @@ def h1_bar_counts(diagrams: np.ndarray) -> np.ndarray:
     return np.sum(is_h1 & is_finite_bar, axis=1)
 
 
+def h1_total_persistence(diagrams: np.ndarray) -> np.ndarray:
+    """Total H1 persistence  S = sum_k (death_k - birth_k)  per diagram.
+
+    Unlike `normalized_h1_entropy` (which divides out both the bar count via
+    1/ln(M) and the total via p_k = L_k/S), this keeps the *magnitude* of the
+    loop structure — the quantity that actually collapses in a correlation
+    crash and builds during a slow bubble. Diagonal/zero-persistence points and
+    non-H1 features contribute 0.
+    """
+    births = diagrams[:, :, 0]
+    deaths = diagrams[:, :, 1]
+    dims = diagrams[:, :, 2]
+    lifetimes = np.where((dims == 1) & ((deaths - births) > 0.0),
+                         deaths - births, 0.0)
+    return lifetimes.sum(axis=1)
+
+
 def normalized_h1_entropy(diagrams: np.ndarray) -> np.ndarray:
     """Normalized H1 topological entropy per diagram, exactly per SPEC §2 Step 3:
 

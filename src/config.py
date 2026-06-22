@@ -73,5 +73,5 @@ _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(_THIS_DIR)
 
 DB_PATH = os.path.join(PROJECT_ROOT, "stocks.db")
-OUTPUT_DIR = os.path.join(PROJECT_ROOT, "outputs")
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "results")
 CHART_PATH = os.path.join(OUTPUT_DIR, "risk_pulse.png")

@@ -101,6 +101,15 @@ def test_h1_bar_counts():
     assert list(counts) == [0, 2]
 
 
+def test_h1_total_persistence():
+    # sample 0: no H1 bars -> S = 0; sample 1: 3 bars of lifetime 0.3 -> S = 0.9.
+    diagrams = np.stack([_diagram_with_h1_bars(0),
+                         _diagram_with_h1_bars(3, lifetime=0.3)])
+    S = tda_engine.h1_total_persistence(diagrams)
+    assert S[0] == 0.0
+    assert np.isclose(S[1], 0.9)
+
+
 # ---------------------------------------------------------------------------
 # 3. Data alignment via the SQLite layer
 # ---------------------------------------------------------------------------

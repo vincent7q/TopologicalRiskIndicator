@@ -76,7 +76,7 @@ alignment. No network required.
 .\.venv\Scripts\python.exe src\main.py                 # refresh the cache (incremental) then run
 ```
 
-Output is written to **`outputs/risk_pulse.png`**.
+Output is written to **`results/risk_pulse.png`**.
 
 Common flags: `--start` / `--end` (restrict the analysis window), `--output <path>`
 (change where the PNG is saved), `--no-fetch` (skip the yfinance refresh).
@@ -85,7 +85,7 @@ Common flags: `--start` / `--end` (restrict the analysis window), `--output <pat
 
 ## Understanding the result
 
-`outputs/risk_pulse.png` is a two-panel, shared-time-axis chart.
+`results/risk_pulse.png` is a two-panel, shared-time-axis chart.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -158,4 +158,4 @@ docs/               # PRD, SPEC, portfolio definition
 requirements.txt
 ```
 
-`stocks.db`, `outputs/`, and `.venv/` are gitignored.
+`stocks.db`, `results/`, and `.venv/` are gitignored.

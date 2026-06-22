@@ -78,7 +78,7 @@ The SPEC's blueprint is implemented as decoupled modules under `src/` (data I/O 
 - **`db.py`** — SQLite cache. Exact `todo.md` schema: `data(stock, DT, Date, Open, Close, High, Low, Volume)`, `PRIMARY KEY(DT, stock)`. `DT`=`YYYYMMDD` int. `Close` is stored split/dividend-adjusted (yfinance `auto_adjust=True`), so no separate Adj Close column. `init_db / upsert_prices (INSERT OR REPLACE) / get_latest_dt / load_panel`.
 - **`data_fetcher.py`** (Module 1) — cache-aware incremental fetch of all 66 symbols, then `build_returns()`: align on the benchmark calendar, drop assets with >`MISSING_THRESHOLD` missing rows, ffill short gaps, drop remaining NaN rows, compute log returns $R_{i,t}=\ln(P_{i,t}/P_{i,t-1})$.
 - **`tda_engine.py`** (Module 2) — `build_distance_matrices` (Pearson ρ → $D=\sqrt{2(1-\rho)}$), then **one batched** `VietorisRipsPersistence(metric="precomputed", homology_dimensions=[0,1], n_jobs=-1).fit_transform` over all windows, then `normalized_h1_entropy`. Output: `[Date, H1_Entropy]`.
-- **`main.py`** (Module 3) — orchestrate, compute threshold $\mu+2\sigma$ (over non-zero entropy), render the dual-panel chart to `outputs/risk_pulse.png`.
+- **`main.py`** (Module 3) — orchestrate, compute threshold $\mu+2\sigma$ (over non-zero entropy), render the dual-panel chart to `results/risk_pulse.png`.
 
 ## Critical correctness rules — read before touching the engine
 
@@ -97,8 +97,8 @@ py -3.10 -m venv .venv
 
 .\.venv\Scripts\python.exe src\data_fetcher.py --build-db   # backfill stocks.db (~66 symbols, slow once)
 .\.venv\Scripts\python.exe -m pytest tests -q               # offline unit tests (entropy edge cases, distance, alignment)
-.\.venv\Scripts\python.exe src\main.py --no-fetch           # compute + chart from cache → outputs/risk_pulse.png
+.\.venv\Scripts\python.exe src\main.py --no-fetch           # compute + chart from cache → results/risk_pulse.png
 .\.venv\Scripts\python.exe src\main.py                      # refresh cache (incremental) then run
 ```
 
-`stocks.db`, `outputs/`, and `.venv/` are gitignored. `git` history note: the old `src/data_fetcher.py` was a single-asset OHLCV→CSV dumper; it was rewritten to Module 1.
+`stocks.db`, `results/`, and `.venv/` are gitignored. `git` history note: the old `src/data_fetcher.py` was a single-asset OHLCV→CSV dumper; it was rewritten to Module 1.
